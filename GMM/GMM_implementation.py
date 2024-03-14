@@ -4,7 +4,7 @@ import numpy as np
 
 
 class GMM:
-    def __init__(self,X,k,mu,cov,pi_s,num_iters,tol,cov_type='full'):
+    def __init__(self,X,k,num_iters=1000,tol=1e-3,cov_type='full',seed=0):
         '''
         X : Datapoints of dimension (n,d)
         k: Number of clusters
@@ -23,17 +23,22 @@ class GMM:
                   spherical - each mixture k has a covariance matrix of type [sigma_{k}^2I]
         tol: tolerance for less than which its considered converged
         '''
-
+        np.random.seed(seed)
         self.X = np.array(X)
-        self.mu = mu
-        self.covariances = cov
-        self.pis = pi_s
         self.iters = num_iters
         self.covariance_type = cov_type
         self.num_components = k
         self.n , self.d = self.X.shape
+        self.tol= tol
         self.wik = np.zeros((self.n,self.num_components))
         self.log_likelihood_history = []
+        pi_s = np.ones(k)/k # assume uninformative prior
+        mu = np.random.randn(k, self.d)*10 # initialise means of k components
+        cov = np.array([np.eye(self.d) for _ in range(k)])
+        self.mu = mu
+        self.covariances = cov
+        self.pis = pi_s
+        
 
     def E_Step(self):
         '''
@@ -57,9 +62,9 @@ class GMM:
         M_Step for GMM, finds the updated Means, covariance and weights of components
         '''
         sum_responsibilities = np.sum(self.wik,axis=0)
-
         # Finding the means for kth component
         for k in range(self.num_components):
+            self.pis[k] = sum_responsibilities[k]/self.n
             resp_k = self.wik[:,k].reshape(-1,1)
             numerator = np.sum(resp_k * self.X,axis=0)
             self.mu[k] = numerator/sum_responsibilities[k]
@@ -98,3 +103,24 @@ class GMM:
                 tot = tot + self.pis[k]*multivariate_normal.pdf(self.X[i],self.mu[k],self.covariances[k])
             log_likelihood += math.log(tot)
         return log_likelihood
+    
+    def predict_proba(self,x):
+        '''
+        Get the probabilities of each class
+        '''
+        probabilties = np.zeros((self.n,self.num_components))
+        for i in range(self.n):
+            tot = 0.0
+            # Calculate the denominor for responsibilities for each X{i}
+            for k in range(self.num_components):
+                tot = tot + self.pis[k]*multivariate_normal.pdf(x[i],self.mu[k],self.covariances[k])
+            for k in range(self.num_components):
+                single = self.pis[k]*multivariate_normal.pdf(x[i],self.mu[k],self.covariances[k])
+                probabilties[i,k] = single/tot
+        return probabilties
+    
+    def predict(self,x):
+        '''
+        Get the class labels
+        '''
+        return np.argmax(self.predict_proba(x),axis=1)
