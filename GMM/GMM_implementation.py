@@ -51,6 +51,7 @@ class GMM:
             # Calculate the denominor for responsibilities for each X{i}
             for k in range(self.num_components):
                 tot = tot + self.pis[k]*multivariate_normal.pdf(self.X[i],self.mu[k],self.covariances[k])
+            print(self.pis[k],tot)
             log_likelihood += math.log(tot)
             for k in range(self.num_components):
                 single = self.pis[k]*multivariate_normal.pdf(self.X[i],self.mu[k],self.covariances[k])
@@ -67,6 +68,7 @@ class GMM:
             self.pis[k] = sum_responsibilities[k]/self.n
             resp_k = self.wik[:,k].reshape(-1,1)
             numerator = np.sum(resp_k * self.X,axis=0)
+            print(sum_responsibilities[k])
             self.mu[k] = numerator/sum_responsibilities[k]
 
         # For covariances - could be written as a single vector expression, but that would be less readable
@@ -85,7 +87,7 @@ class GMM:
         for iter in range(self.iters):
             log_likelihood_1 = self.E_Step()
             self.M_Step()
-            if(abs(log_likelihood-log_likelihood_1)<=self.tol):
+            if(log_likelihood != 0 and abs(log_likelihood-log_likelihood_1)<=self.tol):
                 print("GMM converged at iteration",iter)
                 break
             log_likelihood = log_likelihood_1
@@ -101,6 +103,7 @@ class GMM:
             # Calculate the denominor for responsibilities for each X{i}
             for k in range(self.num_components):
                 tot = tot + self.pis[k]*multivariate_normal.pdf(self.X[i],self.mu[k],self.covariances[k])
+            print(tot)
             log_likelihood += math.log(tot)
         return log_likelihood
     
