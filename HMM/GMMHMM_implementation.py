@@ -12,10 +12,10 @@ def normalize_2d(matrix):
     return matrix
 
 
-test = pd.read_csv('../Dataset/TeleguDigits-MFCC/Test.csv')
-train = pd.read_csv('../Dataset/TeleguDigits-MFCC/Train.csv')
+test = pd.read_csv('../Dataset/HindiDigitsMFCC/Test.csv')
+train = pd.read_csv('../Dataset/HindiDigitsMFCC/Train.csv')
 
-def build_dataset(sound_path='../Dataset/TeleguDigits/'):
+def build_dataset(sound_path='../Dataset/HindiDigits/'):
     files = sorted(os.listdir(sound_path))
     x_train = []
     y_train = []
