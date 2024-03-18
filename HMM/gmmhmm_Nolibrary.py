@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
 import scipy.stats as st
+from scipy.io import wavfile
+from python_speech_features import mfcc
+import os
 
 class gmmhmm:
     #This class converted with modifications from https://code.google.com/p/hmm-speech-recognition/source/browse/Word.m
@@ -122,7 +125,7 @@ class gmmhmm:
         self.A = expected_A
         return log_likelihood
     
-    def fit(self, obs, n_iter=15):
+    def fit(self, obs, n_iter=100):
         #Support for 2D and 3D arrays
         #2D should be n_features, n_dims
         #3D should be n_examples, n_features, n_dims
@@ -164,34 +167,68 @@ class gmmhmm:
             return out
 
 
-test = pd.read_csv('../Dataset/TamilDigits-MFCC/Test.csv')
-train = pd.read_csv('../Dataset/TamilDigits-MFCC/Train.csv')
+def build_dataset(sound_path='../Dataset/HindiDigits/'):
+    files = sorted(os.listdir(sound_path))
+    x_train = []
+    y_train = []
+    x_test = []
+    y_test = []
+    data = dict()
+    n = len(files)
+    for i in range(n):
+        feature = feature_extractor(sound_path=sound_path + files[i])
+        digit = files[i][0]
+        if digit not in data.keys():
+            data[digit] = []
+            x_test.append(feature)
+            y_test.append(digit)
+        else:
+            if np.random.rand() < 0.1:
+                x_test.append(feature)
+                y_test.append(digit)
+            else:
+                x_train.append(feature)
+                y_train.append(digit)
+            data[digit].append(feature)
+    return x_train, y_train, x_test, y_test, data
 
-test.drop('File Name', axis=1, inplace=True)
-train.drop('File Name', axis=1, inplace=True)
+def feature_extractor(sound_path):
+    sampling_freq, audio = wavfile.read(sound_path)
+    mfcc_features = mfcc(audio, sampling_freq,nfft = 2048,numcep=13,nfilt=13)
+    return mfcc_features
 
-testLable ={}
-trainLable = {}
+x_train, y_train, x_test, y_test, data = build_dataset()
 
-for index, row in train.iterrows():
-    if(index == 0):
-        continue
-    if row['digit'] not in trainLable.keys():
-        trainLable[row['digit']] = []
-    digit = row['digit']
-    row.drop('digit', inplace=True)
-    trainLable[digit].append(row)
 
 
 models = {}
 
-for key in trainLable.keys():
+for key in data.keys():
     model = gmmhmm(6)
-    traindata = np.array(trainLable[key]).T
+    feature = np.ndarray(shape=(1, 13))
+    for list_feature in data[key]:
+            feature = np.vstack((feature, list_feature))
+    feature = np.delete(feature, (0), axis=0)
+    traindata = feature
     print(traindata.shape)
     model.fit(traindata)
     models[key] = model
 
+print(data.keys())
+print(y_test)
+
+correct = 0
+total = 0
+
+for i in range(len(x_test)):
+    scores = np.array([model.transform(x_test[i]) for model in models.values()])
+    print(scores)
+    output = list(models.keys())[np.argmax(scores)]
+    print(output)
+    print(y_test[i])
+    if output == y_test[i]:
+        correct += 1
+    total += 1
 
 # for index, row in test.iterrows():
 #     if(index == 0):
@@ -206,25 +243,7 @@ for key in trainLable.keys():
 #     testLable[key] = np.array(testLable[key])
 
 
-correct = 0
-total = 0
-
-for index, row in test.iterrows():
-    if(index == 0):
-        continue
-    digit = row['digit']
-    row.drop('digit', inplace=True)
-    testrow = np.array(row)
-    predict = -int(1e9)
-    predict_digit = -1
-    for key in models.keys():
-        score = models[key].transform(testrow.reshape(1, -1))
-        if score > predict:
-            predict = score
-            predict_digit = key
-    if predict_digit == digit:
-        correct += 1
-    total += 1
 
 print(correct, total, correct/total)
+
     

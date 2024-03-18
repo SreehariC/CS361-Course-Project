@@ -78,10 +78,10 @@ x_train, y_train, x_test, y_test, data = build_dataset()
 
 models = {}
 
-print(trainLable.keys())
+print(data.keys())
 
 for key in data.keys():
-    model = hmm.GMMHMM(verbose=False,n_components=10,n_iter=10000, covariance_type='diag')
+    model = hmm.GMMHMM(verbose=False,n_components=5,n_iter=10000, covariance_type='diag')
     feature = np.ndarray(shape=(1, 13))
     for list_feature in data[key]:
             feature = np.vstack((feature, list_feature))
