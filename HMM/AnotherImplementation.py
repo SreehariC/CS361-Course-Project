@@ -4,17 +4,57 @@ import scipy.stats as st
 from scipy.io import wavfile
 from python_speech_features import mfcc
 import os
-
-import numpy as np
 from scipy.stats import multivariate_normal
 from sys import stdout
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
+import itertools
+
+def plot_confusion_matrix(test_labels, classifier_labels, classes,
+                          normalize=False,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues):
+    plt.figure()
+
+    cm = confusion_matrix(test_labels, classifier_labels)
+
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        print("Normalized confusion matrix")
+    else:
+        print('Confusion matrix, without normalization')
+
+    # title += '\nCCR is = ' + str(CCR(test_labels, classifier_labels))
+
+    print(title)
+
+    print(cm)
+
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+
+    fmt = '.2f' if normalize else 'd'
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, format(cm[i, j], fmt),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    plt.show()
+
 
 np.set_printoptions(threshold=np.inf)
-
-debug = False
-test_debug = False
-prob_debug = False
-converge_debug = False
 
 cov_bias = 0.001
 cov_bias_init = 0.1
@@ -56,11 +96,6 @@ class GMM_HMM:
 
     # ********************************************************************************************
 
-    def instance_name(self):
-        return self.name
-
-    # ********************************************************************************************
-
     def init_gmm(self, dataset):
 
         # set input dimentions
@@ -96,9 +131,6 @@ class GMM_HMM:
 
         # forward probablities init
         alpha = min_log_acc * np.ones((self.states_count, T))
-
-        if debug:
-            print('prior : ', self.prior)
 
         # first time probablity
         for i in range(len(self.prior)):
@@ -163,10 +195,6 @@ class GMM_HMM:
 
                     prob = np.logaddexp(prob, new_prob)
 
-                    if prob_debug:
-                        print('mu : {}, obs : {}, prob : {}'.format(self.mu[i, j], observation[t], new_prob))
-                        print('cov : ', self.cov[i][j])
-
                 observation_prob[i, t] = prob
 
         return observation_prob
@@ -213,20 +241,11 @@ class GMM_HMM:
                 T = observation.shape[0]
                 obs_prob = self.get_observation_prob(observation)
 
-                if debug:
-                    print('obs_prob : ', obs_prob)
-
                 alpha = self.forward_prob(obs_prob)
                 current_liklihood += np.sum(np.exp(alpha), axis=0)[-1]
 
-                if debug:
-                    print('alpha : ', alpha)
-
                 beta = self.backward_prob(obs_prob)
                 epsilon = np.zeros((self.states_count, self.states_count, T - 1))
-
-                if debug:
-                    print('beta : ', beta)
 
                 for t in range(T - 1):
 
@@ -241,9 +260,6 @@ class GMM_HMM:
 
                     epsilon[:, :, t] -= accum
 
-                if debug:
-                    print('epsilon : ', epsilon)
-
                 gamma = np.zeros((self.states_count, T))
                 for t in range(T):
                     gamma[:, t] = alpha[:, t] + beta[:, t]
@@ -252,9 +268,6 @@ class GMM_HMM:
                         accum = np.logaddexp(accum, gamma[i, t])
                     gamma_sum = accum
                     gamma[:, t] = gamma[:, t] - gamma_sum
-
-                if debug:
-                    print('gamma : ', gamma)
 
                 h = np.zeros((self.states_count, self.mixture_count, T))
                 for t in range(T):
@@ -277,9 +290,6 @@ class GMM_HMM:
 
                             else:
                                 h[i, j, t] = -np.Inf
-
-                if debug:
-                    print('h : ', h)
 
                 temp_A_update = np.zeros((self.states_count, self.states_count))
                 for i in range(self.states_count):
@@ -315,16 +325,10 @@ class GMM_HMM:
                             else:
                                 temp_A_update[i, j] = 0
 
-                if debug:
-                    print('A_update : ', temp_A_update)
-
                 average = np.zeros((self.states_count, self.mixture_count))
                 for i in range(self.states_count):
                     for j in range(self.mixture_count):
                         average[i, j] = np.sum(np.exp(gamma[i] + h[i, j]))
-
-                if debug:
-                    print('average : ', average)
 
                 temp_mu_update = np.zeros(shape=self.mu.shape)
                 for i in range(self.states_count):
@@ -332,16 +336,10 @@ class GMM_HMM:
                         accum = 0
                         for t in range(T):
                             accum += np.exp(gamma[i, t] + h[i, j, t]) * observation[t]
-
-                        if debug:
-                            print('gamma sum : ', accum)
                         temp = average[i, j]
                         temp += (average[i, j] == 0)
                         temp_mu_update[i, j] = accum / temp
                         # mu_update[i, j] = np.dot(gamma[i] * h[i, j], observation) / average[i, j]
-
-                if debug:
-                    print('mu_update : ', temp_mu_update)
 
                 temp_c_update = np.zeros(shape=self.c.shape)
                 for i in range(self.states_count):
@@ -349,9 +347,6 @@ class GMM_HMM:
                         summation = np.sum(average[i])
                         summation += (summation == 0)
                         temp_c_update[i, j] = average[i, j] / summation
-
-                if debug:
-                    print('c_update : ', temp_c_update)
 
                 temp_cov_update = np.zeros(shape=self.cov.shape)
                 for i in range(self.states_count):
@@ -364,9 +359,6 @@ class GMM_HMM:
 
                         average[i, j] += average[i, j] == 0
                         temp_cov_update[i, j] = (accum / average[i, j] + cov_bias * np.eye(self.dim_count))
-
-                if debug:
-                    print('cov_update : ', temp_cov_update)
 
                 prior_update += np.exp(gamma[:, 0])
                 A_update += temp_A_update
@@ -384,10 +376,6 @@ class GMM_HMM:
 
             # prevent devide by zero
             current_liklihood += current_liklihood == 0
-
-            if converge_debug:
-                print('\nprev : {}, new : {}, diff : {:.1f}%'.format(accum_liklihood_prev, current_liklihood,
-                                                                     np.abs((accum_liklihood_prev - current_liklihood) / current_liklihood) * 100))
             if np.abs((accum_liklihood_prev - current_liklihood) / current_liklihood) < stop_diff:
                 return
 
@@ -405,11 +393,6 @@ class GMM_HMM:
 
             obs_prob = self.get_observation_prob(observation)
             alpha = self.forward_prob(obs_prob)
-
-            if test_debug:
-                print('likelihood obs : ', obs_prob)
-                print('likelihood alpha : ', alpha)
-
             output[i] = np.sum(np.exp(alpha), axis=0)[-1]
 
         return output
@@ -472,13 +455,13 @@ def build_dataset(sound_path='../Dataset/HindiDigits/'):
             x_test.append(feature)
             y_test.append(digit)
         else:
-            if np.random.rand() < 0.1:
+            if np.random.rand() < 0.25:
                 x_test.append(feature)
                 y_test.append(digit)
             else:
                 x_train.append(feature)
                 y_train.append(digit)
-            data[digit].append(feature)
+                data[digit].append(feature)
     return x_train, y_train, x_test, y_test, data
 
 def feature_extractor(sound_path):
@@ -490,17 +473,20 @@ x_train, y_train, x_test, y_test, data = build_dataset()
 
 print(x_test)
 
+predictedLables = []
+
+
 models = {}
 predictions ={}
 
 for key in data.keys():
-    model = GMM_HMM(key,6,3)
-    # feature = np.ndarray(shape=(1, 13))
-    # for list_feature in data[key]:
-    #         feature = np.vstack((feature, list_feature))
-    # feature = np.delete(feature, (0), axis=0)
-    # traindata = feature
-    # print(traindata.shape)
+    model = GMM_HMM(key,4,3)
+        # feature = np.ndarray(shape=(1, 13))
+        # for list_feature in data[key]:
+        #         feature = np.vstack((feature, list_feature))
+        # feature = np.delete(feature, (0), axis=0)
+        # traindata = feature
+        # print(traindata.shape)
     model.train(data[key],1,False)
     models[key] = model
     predictions[key] = model.likelihood(x_test)
@@ -510,33 +496,33 @@ print(y_test)
 
 correct = 0
 total = 0
- 
+    
 
 for i in range(len(x_test)):
-    predict = -int(1e9)
-    predict_digit = -1
-    for key in data.keys():
-        if predictions[key][i] > predict:
-            predict = predictions[key][i]
-            predict_digit = key
-    if predict_digit == y_test[i]:
-        correct += 1
-    total += 1
+        predict = -int(1e9)
+        predict_digit = -1
+        for key in data.keys():
+            if predictions[key][i] > predict:
+                predict = predictions[key][i]
+                predict_digit = key
+        if predict_digit == y_test[i]:
+            correct += 1
+        total += 1
+        predictedLables.append(predict_digit)
 
-# for index, row in test.iterrows():
-#     if(index == 0):
-#         continue
-#     if row['digit'] not in testLable.keys():
-#         testLable[row['digit']] = []
-#     digit = row['digit']
-#     row.drop('digit', inplace=True)
-#     testLable[digit].append(row)
+    # for index, row in test.iterrows():
+    #     if(index == 0):
+    #         continue
+    #     if row['digit'] not in testLable.keys():
+    #         testLable[row['digit']] = []
+    #     digit = row['digit']
+    #     row.drop('digit', inplace=True)
+    #     testLable[digit].append(row)
 
-# for key in testLable.keys():
-#     testLable[key] = np.array(testLable[key])
+    # for key in testLable.keys():
+    #     testLable[key] = np.array(testLable[key])
 
-
-
+plot_confusion_matrix(y_test,predictedLables,data.keys())
 print(correct, total, correct/total)
 
-    
+
