@@ -232,7 +232,7 @@ class GMM_HMM:
 
     # ********************************************************************************************
 
-    def train(self, dataset, stop_diff, belkin):
+    def train(self, dataset, stop_diff):
 
         print('\n--- Running Training for module "{}" '.format(self.name))
 
@@ -251,8 +251,7 @@ class GMM_HMM:
         #Data Covariance Matrix (dXd)
         data_cov = np.zeros((self.dim_count, self.dim_count))
         for observation in dataset:
-            for time_serie in observation:
-                data_cov += np.dot(time_serie, time_serie.T)
+            data_cov += np.einsum('ij,ik->jk', observation, observation)
 
         while True:
 
@@ -281,25 +280,13 @@ class GMM_HMM:
                 epsilon = np.zeros((self.states_count, self.states_count, T - 1))
 
                 for t in range(T - 1):
-
-                    accum = min_log_acc
-
-                    for i in range(self.states_count):
-                        for j in range(self.states_count):
-                            epsilon[i, j, t] = alpha[i, t] + np.log(self.A[i][j] + np.exp(log_offset)) + \
-                                               obs_prob[j][t + 1] + beta[
-                                                   j, t + 1]
-                            accum = np.logaddexp(accum, epsilon[i, j, t])
-
+                    accum = np.logaddexp.reduce(epsilon[:,:, t], initial=min_log_acc)
                     epsilon[:, :, t] -= accum
 
                 gamma = np.zeros((self.states_count, T))
                 for t in range(T):
                     gamma[:, t] = alpha[:, t] + beta[:, t]
-                    accum = min_log_acc
-                    for i in range(len(gamma[:, t])):
-                        accum = np.logaddexp(accum, gamma[i, t])
-                    gamma_sum = accum
+                    gamma_sum = np.logaddexp.reduce(gamma[:, t], initial=min_log_acc)
                     gamma[:, t] = gamma[:, t] - gamma_sum
 
                 h = np.zeros((self.states_count, self.mixture_count, T))
@@ -328,35 +315,13 @@ class GMM_HMM:
                 for i in range(self.states_count):
                     for j in range(self.states_count):
 
-                        accum = min_log_acc
-                        for jj in range(self.states_count):
-                            for tt in range(T - 1):
-                                accum = np.logaddexp(accum, epsilon[i, jj, tt])
-                        eps_sum = accum
-
-                        accum = min_log_acc
-                        for tt in range(T - 1):
-                            accum = np.logaddexp(accum, epsilon[i, j, tt])
-
-                        temp_A_update[i, j] = accum - eps_sum
+                        eps_sum = np.logaddexp.reduce(epsilon[i, :, :T-1],initial=min_log_acc)     
+                        # Calculate the accumulation of epsilon values for the specific state transition
+                        accum = np.logaddexp.reduce(epsilon[i, j, :T-1],initial=min_log_acc)
+                        # Update temp_A_update with the difference
+                        temp_A_update[i, j] = accum.item() - np.sum(eps_sum).item()
 
                 temp_A_update = np.exp(temp_A_update)
-
-                if belkin:
-                    extra_prob = np.zeros(self.states_count)
-
-                    for i in range(self.states_count):
-                        if i != self.states_count - 1:
-                            extra_prob[i] = 1 - temp_A_update[i, i] - temp_A_update[i, i + 1]
-
-                    for i in range(self.states_count):
-                        for j in range(self.states_count):
-                            if i == self.states_count - 1 and j == self.states_count - 1:
-                                temp_A_update[i, j] = 1
-                            elif i == j or j == i + 1:
-                                temp_A_update[i, j] = temp_A_update[i, j] / (1 - extra_prob[i])
-                            else:
-                                temp_A_update[i, j] = 0
 
                 average = np.zeros((self.states_count, self.mixture_count))
                 for i in range(self.states_count):
@@ -473,7 +438,7 @@ predictions ={}
 
 for key in data.keys():
     model = GMM_HMM(key,4,3)
-    model.train(data[key],1,False)
+    model.train(data[key],1)
     models[key] = model
     predictions[key] = model.likelihood(x_test)
 
