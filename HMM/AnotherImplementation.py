@@ -1,10 +1,7 @@
 import numpy as np
-import pandas as pd
-import scipy.stats as st
 from scipy.io import wavfile
 from python_speech_features import mfcc
 import os
-from scipy.stats import multivariate_normal
 from sys import stdout
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
@@ -124,78 +121,112 @@ class GMM_HMM:
 
     # ********************************************************************************************
 
-    def forward_prob(self, observation_prob):
+    def forward_pass(self, observation_prob):
+        """
+        Computes the forward probabilities for the given observation sequence
+        in the Hidden Markov Model (HMM).
 
-        # time steps
-        T = observation_prob.shape[1]
+        Args:
+            observation_prob (numpy.ndarray): A 2D array containing the log probabilities
+                of observing the given observation sequence for each state at each time step.
 
-        # forward probablities init
-        alpha = min_log_acc * np.ones((self.states_count, T))
+        Returns:
+            numpy.ndarray: A 2D array containing the forward probabilities for
+                each state at each time step.
+        """
+        T = observation_prob.shape[1]  # Number of time steps
+        
+        # Initialize forward probabilities
+        log_alpha = np.full((self.states_count, T), float('-inf'))  # Initialize with a very small value
 
-        # first time probablity
-        for i in range(len(self.prior)):
+        # Calculate the log probability for the first time step
+        for i in range(self.states_count):
             self.prior[i] += np.exp(log_offset)
-        alpha[:, 0] = np.log(self.prior) + observation_prob[:, 0]
+        log_alpha[:, 0] = np.log(self.prior) + observation_prob[:, 0]
 
-        # forward probablities for other times
+        # Calculate the forward probabilities for the remaining time steps
         for t in range(1, T):
             for j in range(self.states_count):
                 for i in range(self.states_count):
-                    log_info = alpha[i, t - 1]
-                    log_info += np.log(self.A[i, j] + np.exp(log_offset))
-                    log_info += observation_prob[j, t]
-                    alpha[j, t] = np.logaddexp(alpha[j, t],
-                                               log_info)
+                    log_transition = log_alpha[i, t - 1]
+                    log_transition += np.log(self.A[i, j] + np.exp(log_offset))
+                    log_transition += observation_prob[j, t]
+                    log_alpha[j, t] = np.logaddexp(log_alpha[j, t], log_transition)
 
-        return alpha
+        return log_alpha
 
     # ********************************************************************************************
 
-    def backward_prob(self, observation_prob):
+    def backward_pass(self, observation_prob):
+        """
+        Computes the backward probabilities for the given observation sequence
+        in the Hidden Markov Model (HMM).
 
-        # time steps
-        T = observation_prob.shape[1]
+        Args:
+            observation_prob (numpy.ndarray): A 2D array containing the log probabilities
+                of observing the given observation sequence for each state at each time step.
 
-        # backward probablities init
-        beta = min_log_acc * np.ones((self.states_count, T))
+        Returns:
+            numpy.ndarray: A 2D array containing the backward probabilities for
+                each state at each time step.
+        """
+        T = observation_prob.shape[1]  # Number of time steps
 
-        # last time probablity
-        beta[:, T - 1] = np.ones(self.states_count)
+        # Initialize backward probabilities
+        log_beta = np.full((self.states_count, T), float('-inf'))  # Initialize with a very small value
 
-        beta[:, T - 1] = np.log(beta[:, T - 1])
+        # Set the log probabilities for the last time step to 0
+        log_beta[:, T - 1] = 0
 
-        # backward probablities for other times
+        # Calculate the backward probabilities for the remaining time steps
         for t in range(T - 2, -1, -1):
             for i in range(self.states_count):
                 for j in range(self.states_count):
-                    beta[i, t] = np.logaddexp(beta[i, t],
-                                              np.log(self.A[i, j] + np.exp(log_offset)) + observation_prob[
-                                                  j, t + 1] + beta[j, t + 1])
+                    log_transition = np.log(self.A[i, j] + np.exp(log_offset))
+                    log_transition += observation_prob[j, t + 1]
+                    log_transition += log_beta[j, t + 1]
+                    log_beta[i, t] = np.logaddexp(log_beta[i, t], log_transition)
 
-        return beta
+        return log_beta
 
     # ********************************************************************************************
 
-    def get_observation_prob(self, observation):
 
+    def calculate_observation_probability(self, observation):
+        """
+        Calculates the probability of observing the given observation sequence
+        for each state in the Hidden Markov Model (HMM).
+
+        Args:
+            observation (numpy.ndarray): A sequence of observations.
+
+        Returns:
+            numpy.ndarray: A 2D array containing the log probabilities of observing
+                the given observation sequence for each state at each time step.
+        """
         T = observation.shape[0]
         observation_prob = np.zeros((self.states_count, T))
 
         for i in range(self.states_count):
             for t in range(T):
-                prob = min_log_acc
+                log_prob = float('-inf')  # Initialize with a very small value
+
                 for j in range(self.mixture_count):
-                    chel = np.linalg.cholesky(self.cov[i, j])
+                    # Calculate the Cholesky decomposition of the covariance matrix
+                    chol_cov = np.linalg.cholesky(self.cov[i, j])
 
-                    new_prob = np.log(self.c[i, j] + np.exp(log_offset))
-                    new_prob += - np.log((2 * np.pi) ** (self.dim_count / 2))
-                    new_prob += - np.log(np.linalg.det(chel) ** 2 + np.exp(log_offset))
-                    new_prob += - 0.5 * np.dot((observation[t] - self.mu[i, j]).T,
-                                               np.dot(np.linalg.inv(self.cov[i, j]), (observation[t] - self.mu[i, j])))
+                    # Calculate the log probability for the current mixture component
+                    log_mix_prob = np.log(self.c[i, j] + np.exp(log_offset))
+                    log_mix_prob += -np.log((2 * np.pi) ** (self.dim_count / 2))
+                    log_mix_prob += -np.log(np.linalg.det(chol_cov) ** 2 + np.exp(log_offset))
+                    log_mix_prob += -0.5 * np.dot((observation[t] - self.mu[i, j]).T,
+                                                np.dot(np.linalg.inv(self.cov[i, j]),
+                                                        (observation[t] - self.mu[i, j])))
 
-                    prob = np.logaddexp(prob, new_prob)
+                    # Update the log probability for the current state and time step
+                    log_prob = np.logaddexp(log_prob, log_mix_prob)
 
-                observation_prob[i, t] = prob
+                observation_prob[i, t] = log_prob
 
         return observation_prob
 
@@ -203,8 +234,9 @@ class GMM_HMM:
 
     def train(self, dataset, stop_diff, belkin):
 
-        print('\n--- Running Training for module "{}" '.format(self.instance_name()))
+        print('\n--- Running Training for module "{}" '.format(self.name))
 
+        #Normalize the data
         if normalize:
             for i in range(len(dataset)):
                 dataset[i] = (dataset[i] - np.mean(dataset[i], axis=0)) / np.std(dataset[i], axis=0)
@@ -215,7 +247,8 @@ class GMM_HMM:
 
         current_liklihood = 0.001
         accum_liklihood_prev = 0
-
+        
+        #Data Covariance Matrix (dXd)
         data_cov = np.zeros((self.dim_count, self.dim_count))
         for observation in dataset:
             for time_serie in observation:
@@ -239,12 +272,12 @@ class GMM_HMM:
                 stdout.flush()
 
                 T = observation.shape[0]
-                obs_prob = self.get_observation_prob(observation)
+                obs_prob = self.calculate_observation_probability(observation)
 
-                alpha = self.forward_prob(obs_prob)
+                alpha = self.forward_pass(obs_prob)
                 current_liklihood += np.sum(np.exp(alpha), axis=0)[-1]
 
-                beta = self.backward_prob(obs_prob)
+                beta = self.backward_pass(obs_prob)
                 epsilon = np.zeros((self.states_count, self.states_count, T - 1))
 
                 for t in range(T - 1):
@@ -391,52 +424,11 @@ class GMM_HMM:
 
         for i, observation in enumerate(dataset):
 
-            obs_prob = self.get_observation_prob(observation)
-            alpha = self.forward_prob(obs_prob)
+            obs_prob = self.calculate_observation_probability(observation)
+            alpha = self.forward_pass(obs_prob)
             output[i] = np.sum(np.exp(alpha), axis=0)[-1]
 
         return output
-
-    # ********************************************************************************************
-
-    def viterbi(self, dataset):
-
-        if normalize:
-            for i in range(len(dataset)):
-                dataset[i] = (dataset[i] - np.mean(dataset[i], axis=0)) / np.std(dataset[i], axis=0)
-
-        out_prob = list()
-        out_path = list()
-
-        for observation in dataset:
-
-            T = observation.shape[0]
-            prob_mat = np.zeros((self.states_count, T))
-
-            obs_prob = self.get_observation_prob(observation)
-
-            # initialize
-            prob_mat[:, 0] = self.prior * np.exp(obs_prob[:, 0])
-            # path[i].append(i)
-
-            # newpath = [[] for _ in range(self.states_count)]
-            for t in range(1, T):
-                for j in range(self.states_count):
-                    (prob, state) = max(
-                        [(prob_mat[i, t - 1] * self.A[i, j] * np.exp(obs_prob[j, t]), i) for i in
-                         range(self.states_count)])
-
-                    prob_mat[j, t] = prob
-                    # print('j {}, state {}, prob {}'.format(j, state, prob))
-                    # newpath[j] = path[state] + [j]
-            # path = newpath
-
-            (prob, state) = max([(prob_mat[i, T - 1], i) for i in range(self.states_count)])
-
-            out_prob.append(prob)
-            # out_path.append(np.array(path[state]))
-
-        return out_prob, out_path
 
 
 def build_dataset(sound_path='../Dataset/HindiDigits/'):
@@ -481,12 +473,6 @@ predictions ={}
 
 for key in data.keys():
     model = GMM_HMM(key,4,3)
-        # feature = np.ndarray(shape=(1, 13))
-        # for list_feature in data[key]:
-        #         feature = np.vstack((feature, list_feature))
-        # feature = np.delete(feature, (0), axis=0)
-        # traindata = feature
-        # print(traindata.shape)
     model.train(data[key],1,False)
     models[key] = model
     predictions[key] = model.likelihood(x_test)
@@ -509,18 +495,6 @@ for i in range(len(x_test)):
             correct += 1
         total += 1
         predictedLables.append(predict_digit)
-
-    # for index, row in test.iterrows():
-    #     if(index == 0):
-    #         continue
-    #     if row['digit'] not in testLable.keys():
-    #         testLable[row['digit']] = []
-    #     digit = row['digit']
-    #     row.drop('digit', inplace=True)
-    #     testLable[digit].append(row)
-
-    # for key in testLable.keys():
-    #     testLable[key] = np.array(testLable[key])
 
 plot_confusion_matrix(y_test,predictedLables,data.keys())
 print(correct, total, correct/total)
