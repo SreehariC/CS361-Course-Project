@@ -7,49 +7,6 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 import itertools
 
-def plot_confusion_matrix(test_labels, classifier_labels, classes,
-                          normalize=False,
-                          title='Confusion matrix',
-                          cmap=plt.cm.Blues):
-    plt.figure()
-
-    cm = confusion_matrix(test_labels, classifier_labels)
-
-    """
-    This function prints and plots the confusion matrix.
-    Normalization can be applied by setting `normalize=True`.
-    """
-    if normalize:
-        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-        print("Normalized confusion matrix")
-    else:
-        print('Confusion matrix, without normalization')
-
-    # title += '\nCCR is = ' + str(CCR(test_labels, classifier_labels))
-
-    print(title)
-
-    print(cm)
-
-    plt.imshow(cm, interpolation='nearest', cmap=cmap)
-    plt.title(title)
-    plt.colorbar()
-    tick_marks = np.arange(len(classes))
-    plt.xticks(tick_marks, classes, rotation=45)
-    plt.yticks(tick_marks, classes)
-
-    fmt = '.2f' if normalize else 'd'
-    thresh = cm.max() / 2.
-    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
-        plt.text(j, i, format(cm[i, j], fmt),
-                 horizontalalignment="center",
-                 color="white" if cm[i, j] > thresh else "black")
-
-    plt.tight_layout()
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
-    plt.show()
-
 
 np.set_printoptions(threshold=np.inf)
 
@@ -258,11 +215,11 @@ class GMM_HMM:
             accum_liklihood_prev = current_liklihood
             current_liklihood = 0
 
-            prior_update = np.zeros(self.states_count)
-            A_update = np.zeros((self.states_count, self.states_count))
-            mu_update = np.zeros(shape=self.mu.shape)
-            c_update = np.zeros(shape=self.c.shape)
-            cov_update = np.zeros(shape=self.cov.shape)
+            PriorUpdate = np.zeros(self.states_count)
+            A_New = np.zeros((self.states_count, self.states_count))
+            Mu_New = np.zeros(shape=self.mu.shape)
+            C_New = np.zeros(shape=self.c.shape)
+            Cov_New = np.zeros(shape=self.cov.shape)
 
             for observation in dataset:
 
@@ -337,38 +294,48 @@ class GMM_HMM:
                         temp = average[i, j]
                         temp += (average[i, j] == 0)
                         temp_mu_update[i, j] = accum / temp
-                        # mu_update[i, j] = np.dot(gamma[i] * h[i, j], observation) / average[i, j]
+                        # Mu_New[i, j] = np.dot(gamma[i] * h[i, j], observation) / average[i, j]
 
                 temp_c_update = np.zeros(shape=self.c.shape)
                 for i in range(self.states_count):
-                    for j in range(self.mixture_count):
-                        summation = np.sum(average[i])
-                        summation += (summation == 0)
-                        temp_c_update[i, j] = average[i, j] / summation
+                    sum = np.sum(average[i])
+                    sum += (sum == 0)
+                    temp_c_update[i, :] = average[i] / sum
 
-                temp_cov_update = np.zeros(shape=self.cov.shape)
+                temp_cov_update = np.zeros_like(self.cov)
+
                 for i in range(self.states_count):
                     for j in range(self.mixture_count):
-
-                        accum = 0
+                        # Initialize accumulator
+                        accum = np.zeros((self.dim_count, self.dim_count))
+                        
                         for t in range(T):
+                            # Calculate difference between observation[t] and temp_mu_update[i, j]
                             diff = (observation[t] - temp_mu_update[i, j]).reshape(-1, 1)
-                            accum += np.exp(gamma[i, t] + h[i, j, t]) * np.dot(diff, diff.T)
+                            
+                            # Calculate contribution to the covariance update
+                            contribution = np.exp(gamma[i, t] + h[i, j, t]) * np.dot(diff, diff.T)
+                            
+                            # Accumulate contributions
+                            accum += contribution
+                        
+                        # Ensure average[i, j] is not zero to avoid division by zero
+                        average[i, j] += (average[i, j] == 0)
+                        
+                        # Calculate the covariance update
+                        temp_cov_update[i, j] = (accum / average[i, j]) + (cov_bias * np.eye(self.dim_count))
 
-                        average[i, j] += average[i, j] == 0
-                        temp_cov_update[i, j] = (accum / average[i, j] + cov_bias * np.eye(self.dim_count))
+                PriorUpdate += np.exp(gamma[:, 0])
+                A_New += temp_A_update
+                Mu_New += temp_mu_update
+                C_New += temp_c_update
+                Cov_New += temp_cov_update
 
-                prior_update += np.exp(gamma[:, 0])
-                A_update += temp_A_update
-                mu_update += temp_mu_update
-                c_update += temp_c_update
-                cov_update += temp_cov_update
-
-            self.prior = prior_update / len(dataset)
-            self.A = A_update / len(dataset)
-            self.mu = mu_update / len(dataset)
-            self.c = c_update / len(dataset)
-            self.cov = cov_update / len(dataset)
+            self.prior = PriorUpdate / len(dataset)
+            self.A = A_New / len(dataset)
+            self.mu = Mu_New / len(dataset)
+            self.c = C_New / len(dataset)
+            self.cov = Cov_New / len(dataset)
 
             counter += 1
 
@@ -377,23 +344,31 @@ class GMM_HMM:
             if np.abs((accum_liklihood_prev - current_liklihood) / current_liklihood) < stop_diff:
                 return
 
-    # ********************************************************************************************
 
     def likelihood(self, dataset):
-
+        # Check if normalization is needed
         if normalize:
+            # Normalize each observation in the dataset
             for i in range(len(dataset)):
+                # Subtract mean and divide by standard deviation for each feature
                 dataset[i] = (dataset[i] - np.mean(dataset[i], axis=0)) / np.std(dataset[i], axis=0)
 
+        # Initialize an array to store output likelihoods for each observation
         output = np.zeros(len(dataset))
 
+        # Iterate over each observation in the dataset
         for i, observation in enumerate(dataset):
-
+            # Calculate the probability of the observation given the model
             obs_prob = self.calculate_observation_probability(observation)
+            # Perform forward pass to calculate alpha values
             alpha = self.forward_pass(obs_prob)
+            # Compute the likelihood of the observation using alpha values
+            # The likelihood is the sum of exponentials of alpha values for each state
             output[i] = np.sum(np.exp(alpha), axis=0)[-1]
 
+        # Return the array of likelihoods for all observations
         return output
+
 
 
 def build_dataset(sound_path='../Dataset/HindiDigits/'):
@@ -426,13 +401,58 @@ def feature_extractor(sound_path):
     mfcc_features = mfcc(audio, sampling_freq,nfft = 2048,numcep=13,nfilt=13)
     return mfcc_features
 
+def plot_confusion_matrix(test_labels, classifier_labels, classes,
+                          normalize=False,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues):
+    plt.figure()
+
+    cm = confusion_matrix(test_labels, classifier_labels)
+
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        print("Normalized confusion matrix")
+    else:
+        print('Confusion matrix, without normalization')
+
+    # title += '\nCCR is = ' + str(CCR(test_labels, classifier_labels))
+
+    print(title)
+
+    print(cm)
+
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+
+    fmt = '.2f' if normalize else 'd'
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, format(cm[i, j], fmt),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    plt.show()
+
+
 x_train, y_train, x_test, y_test, data = build_dataset()
 
-print(x_test)
+nstates = []
+fscore = []
+
+
 
 predictedLables = []
-
-
 models = {}
 predictions ={}
 
@@ -442,26 +462,36 @@ for key in data.keys():
     models[key] = model
     predictions[key] = model.likelihood(x_test)
 
-print(data.keys())
-print(y_test)
-
 correct = 0
 total = 0
-    
+
+TruePositives = 0
+FalsePositives = 0
+FalseNegatives = 0
+
+
 
 for i in range(len(x_test)):
-        predict = -int(1e9)
-        predict_digit = -1
-        for key in data.keys():
-            if predictions[key][i] > predict:
-                predict = predictions[key][i]
-                predict_digit = key
-        if predict_digit == y_test[i]:
-            correct += 1
-        total += 1
-        predictedLables.append(predict_digit)
+            predict = -int(1e9)
+            predict_digit = -1
+            for key in data.keys():
+                if predictions[key][i] > predict:
+                    predict = predictions[key][i]
+                    predict_digit = key
+            if predict_digit == y_test[i]:
+                TruePositives += 1
+                correct += 1
+            else:
+                FalsePositives += 1
+                FalseNegatives += 1
+            total += 1
+            predictedLables.append(predict_digit)
 
 plot_confusion_matrix(y_test,predictedLables,data.keys())
-print(correct, total, correct/total)
+print("Accuray :", correct/total)
+print("Precision: ", TruePositives/(TruePositives + FalsePositives))
+print("Recall: ", TruePositives/(TruePositives + FalseNegatives))
+print("F1 Score: ", 2*TruePositives/(2*TruePositives + FalsePositives + FalseNegatives))
+
 
 
