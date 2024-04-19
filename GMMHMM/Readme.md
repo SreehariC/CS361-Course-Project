@@ -21,7 +21,7 @@ Once you have installed the dependencies, you can run the Python script. Navigat
  python GMMHMM.py
 ```
 ## Additional Notes
-Once the script finishes running you can view the confusion matrix and it will also print metrics such as accuracy, precision, recall and f1 score. Here inorder to get metrics for all classes we have used a macro average approach. Furthermore you can also edit variables
+Once the script finishes running you can view the confusion matrix and it will also print metrics such as accuracy, precision, recall and f1 score. Here inorder to get metrics for all classes we have used a micro average approach. Furthermore you can also edit variables
 ```
 #Hyperparameters
 number_of_states = 4
