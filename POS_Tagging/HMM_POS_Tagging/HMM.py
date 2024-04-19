@@ -46,7 +46,7 @@ def train():
 
     # Read the dataset file line by line and parse each line
     dataset = []
-    with open( os.path.join('..', 'Dataset', 'hindi_train1.txt'), 'r',encoding='utf8') as file:
+    with open( os.path.join('..', '..','Dataset', 'hindi_train1.txt'), 'r',encoding='utf8') as file:
         for line in file:
             if line.strip() == ",,":  # Skip empty lines
                 continue
@@ -543,24 +543,7 @@ def data_visualize():
 # Example of custom tokenization using regular expressions
 import re
 
-def custom_tokenize(text):
-    # Tokenize based on non-alphanumeric characters and remove any empty strings
-    tokens = re.split(r'\W+', text)
-    tokens = [token for token in tokens if token]
-    return tokens
 
-
-def preprocess_text(text):
-    # Tokenize the text
-    
-    tokens = custom_tokenize(text)
-    # Remove stopwords
-    stop_words = set(stopwords.words('hindi'))
-    tokens = [token for token in tokens if token not in stop_words]
-    # Lemmatize tokens
-    lemmatizer = WordNetLemmatizer()
-    tokens = [lemmatizer.lemmatize(token) for token in tokens]
-    return tokens
 
 import nltk
 from nltk.tag import hmm
@@ -618,13 +601,13 @@ if __name__ == "__main__":
             data = [line.strip().split() for line in file.readlines()]
         return data
     
-    input_filename = os.path.join('..', 'Dataset', 'most_freq_pos.txt')
+    input_filename = os.path.join('..','..', 'Dataset', 'most_freq_pos.txt')
     data = read_from_file(input_filename)
     # Convert data
     converted_data = convert_data(data)
 
     # Write converted data to an output file
-    output_filename = os.path.join('..', 'Dataset', 'hindi_train1.txt')
+    output_filename = os.path.join('..', '..','Dataset', 'hindi_train1.txt')
     write_to_file(converted_data, output_filename)
     train()
     

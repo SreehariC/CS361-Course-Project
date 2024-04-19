@@ -262,13 +262,13 @@ def read_from_file(filename):
         data = [line.strip().split() for line in file.readlines()]
     return data
 import os
-input_filename = os.path.join('..', 'Dataset', 'most_freq_pos.txt')
+input_filename = os.path.join('..', '..','Dataset', 'most_freq_pos.txt')
 data = read_from_file(input_filename)
 # Convert data
 converted_data,num = convert_data(data)
 print(f"num of sentences: {num}")
 # Write converted data to an output file
-output_filename = os.path.join('..', 'Dataset', 'hindi_train1.txt')
+output_filename = os.path.join('..', '..', 'Dataset', 'hindi_train1.txt')
 write_to_file(converted_data, output_filename)
 # Read the dataset file line by line and parse each line
 

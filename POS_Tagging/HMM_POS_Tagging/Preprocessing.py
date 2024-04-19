@@ -66,7 +66,7 @@ import random
 #     plt.show()
 import os
 def random_freq():
-    with open(os.path.join('..', 'Dataset', 'hindi_pos.txt'), "r", encoding="utf-8") as f:
+    with open(os.path.join('..','..', 'Dataset', 'hindi_pos.txt'), "r", encoding="utf-8") as f:
         lines = f.readlines()
 
     # Initialize a dictionary to store tag counts
@@ -98,12 +98,12 @@ def random_freq():
         output_lines.append(f"{word} {tag}" if tag != "UNK" else f"{word} {'NN'}")
 
     # Write the imputed output to a new file
-    with open(os.path.join('..', 'Dataset', "randomized_most_frequent_imputed_output_file.txt"), "w", encoding="utf-8") as f:
+    with open(os.path.join('..', '..','Dataset', "randomized_most_frequent_imputed_output_file.txt"), "w", encoding="utf-8") as f:
         f.write("\n".join(output_lines))
 
     print("Imputed output file generated successfully.")
 def rule_based_implementation():
-    with open(os.path.join('..', 'Dataset', 'hindi_pos.txt'), "r", encoding="utf-8") as f:
+    with open(os.path.join('..', '..','Dataset', 'hindi_pos.txt'), "r", encoding="utf-8") as f:
         lines = f.readlines()
 
     # Define a rule-based function to impute UNK tags based on the context or linguistic patterns in Hindi
@@ -132,12 +132,12 @@ def rule_based_implementation():
         output_lines.append(f"{word} {tag}")
 
     # Write the output with rule-based imputation to a new file
-    with open(os.path.join('..', 'Dataset', "rule_based_imputed_output_file.txt"), "w", encoding="utf-8") as f:
+    with open(os.path.join('..', '..','Dataset', "rule_based_imputed_output_file.txt"), "w", encoding="utf-8") as f:
         f.write("\n".join(output_lines))
 
     print("Rule-based imputed output file generated successfully.")
 def most_freq_imputer():
-    with open(os.path.join('..', 'Dataset', 'hindi_pos.txt'), "r", encoding="utf-8") as f:
+    with open(os.path.join('..', '..','Dataset', 'hindi_pos.txt'), "r", encoding="utf-8") as f:
         lines = f.readlines()
 
     # Initialize a dictionary to store word counts
@@ -166,10 +166,10 @@ def most_freq_imputer():
     for line in lines:
         word, tag = line.strip().split()
         word = most_frequent_imputation(word, word_counts)
-        output_lines.append(f"{word} {tag}")
+        output_lines.append(f"{word} {tag}" if tag != "UNK" else f"{word} {'NN'}")
 
     # Write the imputed output to a new file
-    with open(os.path.join('..', 'Dataset', "most_freq_pos.txt"), "w", encoding="utf-8") as f:
+    with open(os.path.join('..', '..','Dataset', "most_freq_pos.txt"), "w", encoding="utf-8") as f:
         f.write("\n".join(output_lines))
 
     print("Imputed output file generated successfully.")
