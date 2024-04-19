@@ -261,20 +261,21 @@ def read_from_file(filename):
     with open(filename, 'r', encoding='utf-8') as file:
         data = [line.strip().split() for line in file.readlines()]
     return data
-input_filename = 'most_freq_pos.txt'
+import os
+input_filename = os.path.join('..', 'Dataset', 'most_freq_pos.txt')
 data = read_from_file(input_filename)
 # Convert data
 converted_data,num = convert_data(data)
 print(f"num of sentences: {num}")
 # Write converted data to an output file
-output_filename = 'hindi_train1.txt'
+output_filename = os.path.join('..', 'Dataset', 'hindi_train1.txt')
 write_to_file(converted_data, output_filename)
 # Read the dataset file line by line and parse each line
 
 
 # print('Test set classification report: \n\n{}'.format(metrics.flat_classification_report(ytest, ypred, labels=sorted_labels, digits=3)))
 dataset = []
-with open('hindi_train1.txt', 'r',encoding='utf8') as file:
+with open(output_filename, 'r',encoding='utf8') as file:
     for line in file:
         if line.strip() == ",,":  # Skip empty lines
             continue

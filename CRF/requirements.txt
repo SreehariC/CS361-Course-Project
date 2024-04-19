@@ -1,0 +1,5 @@
+Numpy
+Scipy
+matplotlib
+scikitlearn
+sklearn_crfsuite (for running library implementation)

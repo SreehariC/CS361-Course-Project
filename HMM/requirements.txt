@@ -1,0 +1,6 @@
+Numpy
+Scipy
+matplotlib
+scikitlearn
+HMMLearn (for running library implementation, for custom not required)
+nltk (for running library implementation, for custom not required)
