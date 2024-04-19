@@ -1,7 +1,0 @@
-librosa
-python_speech_features
-webrtcvad
-matplotlib 
-IPython 
-pedalboard 
-noisereduce
