@@ -8,7 +8,7 @@ A pure python implementation of the Linear-Chain Conditional Random Fields
 - Scipy
 - matplotlib
 - scikitlearn
-
+- sklearn_crfsuite (for running library implementation)
 ## Usage
 
 To run the code, do :
