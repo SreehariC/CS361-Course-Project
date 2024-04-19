@@ -14,6 +14,7 @@ import time
 import random
 import json
 import datetime
+import os
 
 from collections import Counter
 
@@ -924,16 +925,16 @@ def read_from_file(filename):
     with open(filename, 'r', encoding='utf-8') as file:
         data = [line.strip().split() for line in file.readlines()]
     return data
-
-input_filename = 'most_freq_pos.txt'
+dataset_path = os.path.join('..', 'Dataset', 'most_freq_pos.txt')
+input_filename = dataset_path
 data = read_from_file(input_filename)
 # Convert data
 converted_data = convert_data(data)
 
 # Write converted data to an output file
-output_filename = 'hindi_train1.txt'
+output_filename = os.path.join('..', 'Dataset', 'hindi_train1.txt')
 write_to_file(converted_data, output_filename)
-crf.train('hindi_train1.txt')
+crf.train(output_filename)
 crf.test()
 
 

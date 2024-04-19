@@ -46,7 +46,7 @@ def train():
 
     # Read the dataset file line by line and parse each line
     dataset = []
-    with open('hindi_train1.txt', 'r',encoding='utf8') as file:
+    with open( os.path.join('..', 'Dataset', 'hindi_train1.txt'), 'r',encoding='utf8') as file:
         for line in file:
             if line.strip() == ",,":  # Skip empty lines
                 continue
@@ -617,13 +617,14 @@ if __name__ == "__main__":
         with open(filename, 'r', encoding='utf-8') as file:
             data = [line.strip().split() for line in file.readlines()]
         return data
-    input_filename = 'most_freq_pos.txt'
+    
+    input_filename = os.path.join('..', 'Dataset', 'most_freq_pos.txt')
     data = read_from_file(input_filename)
     # Convert data
     converted_data = convert_data(data)
 
     # Write converted data to an output file
-    output_filename = 'hindi_train1.txt'
+    output_filename = os.path.join('..', 'Dataset', 'hindi_train1.txt')
     write_to_file(converted_data, output_filename)
     train()
     

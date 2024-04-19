@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-
-from utils.exceptions import FileFormatError
-
 
 def read_conll_corpus(filename):
     """
