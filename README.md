@@ -40,7 +40,7 @@ The Data is used is most_freq_pos.txt from the Dataset Folder and is divided int
 To run the preprocessing part, do :
 python Preprocessing.py
 
-In this, call the method you want to use to impute the missing values.
+In this, call the method(way you want to impute, there are 3 functions corresponding to three different ways, with clear naming done for each) you want to use to impute the missing values.
 
 The Data is used is hindi_pos.txt from the Dataset Folder and imputed output is generated in Dataset Folder itself
 
