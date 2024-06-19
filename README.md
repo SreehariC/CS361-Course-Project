@@ -1,4 +1,5 @@
 # Application of Statistical ML Models
+- We explored and implemented  the following models from scratch - HMM for Speech Recognition, also tried GMMHMM for this, where each state of the HMM is sampled from a gaussian distribution. GMM for Speaker Identification and clusterting of different speeches. HMM and CRF for POS tagging along with various techniques like mean, iterative ,most frequent and  randomized imputation for imputation of missing values, laplace smoothening smoothening the weights. Also compared the performance with library and got similar results.
 - Dhanesh V, 210101117 ; Sreehari C, 210101101 ; Ketan Singh 210101118 ; Rashaad Ali Baig 210101085
 
 # Instructions to run the code
